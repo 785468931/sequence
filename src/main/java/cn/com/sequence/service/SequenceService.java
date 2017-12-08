@@ -5,9 +5,6 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,27 +17,53 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class SequenceService {
-	AtomicLong atomic = new AtomicLong();
-	private static ConcurrentMap<String, Long> currentMaxId = new ConcurrentHashMap<>();
-	int expand = 20000000; //id段位
+	@Autowired
+	LockSquence lockSquence;
+
+	int expand = 200000; //id段位
 	Logger log = LoggerFactory.getLogger(this.getClass());
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
 	public Long getSequenceId(String ip) {
-		long id = atomic.incrementAndGet();
-		Long maxId = currentMaxId.get(ip);
-		if (maxId != null && id < maxId) {
-			log.info("生成的id：{}", id);
-			return id;
+		synchronized (lockSquence) {
+			long id = lockSquence.getAtomic().incrementAndGet();
+			Long maxId = lockSquence.getCurrentMaxId().get(ip) ;
+			if (maxId != null && id < maxId) {
+				log.info("生成的id：{}", id);
+				return id;
+			}
 		}
+		
 		Long getId = updateSequenceId(ip);
 		Long currentId = getId * expand;
-		atomic.set(currentId);
-		currentMaxId.put(ip, (getId + 1) * expand);
-		log.info("生成的id：{}", id);
+		synchronized (lockSquence) {
+			lockSquence.getAtomic().set(currentId);
+			lockSquence.getCurrentMaxId().put(ip, (getId + 1) * expand);
+		}
+		log.info("生成的id：{}", currentId);
 		return currentId;
 	}
+
+//	AtomicLong atomic = new AtomicLong();
+//	private static ConcurrentMap<String, Long> currentMaxId = new ConcurrentHashMap<>();
+//	public Long getSequenceId(String ip) {
+//		long id = atomic.incrementAndGet();
+//		Long maxId = currentMaxId.get(ip);
+//		synchronized (maxId) {
+//			if (maxId != null && id < maxId) {
+//				log.info("生成的id：{}", id);
+//				return id;
+//			}
+//		}
+//		
+//		Long getId = updateSequenceId(ip);
+//		Long currentId = getId * expand;
+//		atomic.set(currentId);
+//		currentMaxId.put(ip, (getId + 1) * expand);
+//		log.info("生成的id：{}", id);
+//		return currentId;
+//	}
 
 	public long updateSequenceId(final String ip) {
 		KeyHolder keyHolder = new GeneratedKeyHolder();
