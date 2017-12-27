@@ -20,3 +20,6 @@ target/classes/logback-spring.xml
 target/maven-status/maven-compiler-plugin/testCompile/default-testCompile/inputFiles.lst
 
 *.log
+/target/
+/.classpath
+/.project

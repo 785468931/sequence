@@ -5,10 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -44,7 +41,7 @@ public class SequenceService {
 			Long maxId = lockSquence.getCurrentMaxId().get(ip) ;
 			if (maxId != null && id < maxId) {
 				log.info("生成的id：{}", id);
-				saveIdLog( ip, id);
+				//saveIdLog( ip, id);
 				return id;
 			}
 		}
@@ -54,7 +51,30 @@ public class SequenceService {
 		synchronized (lockSquence) {
 			lockSquence.getAtomic().set(currentId);
 			lockSquence.getCurrentMaxId().put(ip, (getId + 1) * expand);
-			saveIdLog( ip, currentId);
+			//saveIdLog( ip, currentId);
+		}
+		
+		log.info("生成的id：{}", currentId);
+		return currentId;
+	}
+	
+	public Long getSequenceIdBySingleProcess(String ip) {
+		synchronized (lockSquence) {
+			long id = lockSquence.getAtomic().incrementAndGet();
+			Long maxId = lockSquence.getCurrentMaxId().get(ip) ;
+			if (maxId != null && id < maxId) {
+				log.info("生成的id：{}", id);
+				//saveIdLog( ip, id);
+				return id;
+			}
+		}
+		
+		Long getId = updateSequenceId(ip);
+		Long currentId = getId * expand;
+		synchronized (lockSquence) {
+			lockSquence.getAtomic().set(currentId);
+			lockSquence.getCurrentMaxId().put(ip, (getId + 1) * expand);
+			//saveIdLog( ip, currentId);
 		}
 		
 		log.info("生成的id：{}", currentId);
@@ -113,4 +133,10 @@ public class SequenceService {
 		jdbcTemplate.update("delete from sequence_generator_table where ip=? and id<? " , new Object[] { ip,id },new int[] { Types.VARCHAR,  Types.BIGINT });
 		return id;
 	}
+	
+
+	
+	
+
+	
 }
